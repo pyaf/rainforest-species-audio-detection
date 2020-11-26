@@ -1,0 +1,46 @@
+remark: Testing
+home: /media/ags/DATA/CODE/kaggle/rsna-intracranial-hemorrhage-detection/
+data_home: /media/ags/DATA/CODE/kaggle/rsna-intracranial-hemorrhage-detection/
+fold: 0
+total_folds: 5
+size: 512
+top_lr: 1e-3
+class_weights: None
+cw_sampling: False
+he_sampling: False
+hard_ex_weight: 2
+hard_df: weights/
+num_samples: None
+model_name: efficientnet-b3
+ext_text: test
+mean: (0.485, 0.456, 0.406)
+std: (0.229, 0.224, 0.225)
+
+loss:
+  name: focal_loss
+  params:
+    gamma: 2.0
+
+optimizer:
+    name: RAdam
+    params:
+        lr: 1e-3
+
+df_path: data/stage_1_train_pivot.feather
+sample_submission: data/sample_submission.csv
+data_folder: data/stage_1_train_images/
+
+phases: ["train", "val"]
+batch_size:
+    train: 8
+    val: 4
+    test: 4
+
+num_workers: 12
+num_classes: 6
+ep2unfreeze: 2
+num_epochs: 30
+base_lr: None
+momentum: 0.95
+patience: 3
+

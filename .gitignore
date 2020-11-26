@@ -1,0 +1,14 @@
+data/*
+*.npy
+*.pyc
+*.h5
+*.pkl
+*.json
+*.pth
+*.npy
+*.csv
+*.zip
+*.zip*
+__pycache__/*
+.ipynb_checkpoints/*
+sftp-config.json

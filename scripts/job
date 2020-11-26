@@ -1,0 +1,9 @@
+#!/bin/bash
+#PBS -l select=ncpus=2:mem=10gb:ngpus=1
+#PBS -q gpu
+module load cuda
+module load anaconda/3
+source activate ML
+cd /home/eee/ug/15084015/aptos/
+python train.py -f configs/148_efficientnet-b5_f1_omag.yaml
+source deactivate
