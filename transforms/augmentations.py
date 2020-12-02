@@ -37,7 +37,7 @@ from albumentations import (
 )
 
 
-from albumentations.torch import ToTensor
+from albumentations.pytorch import ToTensor
 from albumentations.core.transforms_interface import ImageOnlyTransform
 
 
@@ -131,22 +131,24 @@ def get_transforms(phase, cfg):
     if phase == "train":
         list_transforms.extend(
             [
-                Transpose(p=0.5),
-                Flip(p=0.5),
-                ShiftScaleRotate(
-                    shift_limit=0.1, scale_limit=(-0.1, 0.1), rotate_limit=180, p=0.7
-                ),
-                RandomBrightnessContrast(0.1, 0.1, p=0.2),
+                #Transpose(p=0.5),
+                #HorizontalFlip(p=0.5),
+                #ShiftScaleRotate(
+                #    shift_limit=0.1, scale_limit=(-0.1, 0.1), rotate_limit=180, p=0.7
+                #),
+                #RandomBrightnessContrast(0.1, 0.1, p=0.2),
                 #strong_aug()
 
             ]
         )
     list_transforms.extend(
         [
-            Resize(size, size),
+            #Resize(size[0], size[1]),
             #PadIfNeeded(size, size, p=1, border_mode=1),
-            Normalize(mean=mean, std=std, p=1),
+
+            #Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
             ToTensor(normalize=None),  # [6]
+            #ToTensor(),  # [6]
         ]
     )
     return Compose(list_transforms)

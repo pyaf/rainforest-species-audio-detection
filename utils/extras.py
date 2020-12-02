@@ -18,6 +18,13 @@ from easydict import EasyDict as edict
 plt.switch_backend("agg")
 
 
+def bold(string):
+    '''Used when printing in bold'''
+    b1 = "\033[1m"
+    b2 = "\033[0;0m"
+    return f"{b1}{string}{b2}"
+
+
 def get_parser():
     """Get parser object."""
     parser = ArgumentParser(

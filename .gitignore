@@ -1,4 +1,5 @@
 data/*
+*/*.pt
 *.npy
 *.pyc
 *.h5

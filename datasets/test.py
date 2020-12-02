@@ -13,6 +13,8 @@ if __name__ == "__main__":
     import torchvision
     torchvision.set_image_backend('accimage')
 
+    from utils.extras import *
+    from .dataset_factory import *
     import time
     start = time.time()
     phase = "train"
@@ -22,7 +24,8 @@ if __name__ == "__main__":
     cfg["batch_size"]["train"] = 2
     cfg["batch_size"]["val"] = 2
 
-    dataloader = provider(phase, cfg)
+    df = pd.read_csv(str(cfg.home / cfg.df_path))
+    dataloader = provider(df, phase, cfg)
     ''' train val set sanctity
     #pdb.set_trace()
     tdf = dataloader.dataset.df
@@ -37,14 +40,15 @@ if __name__ == "__main__":
     from collections import defaultdict
     fnames_dict = defaultdict(int)
     for idx, batch in enumerate(dataloader):
-        #fnames, images, labels = batch
-        fnames, images1, images2, labels = batch
+        fnames, images, labels = batch
+        class_indices = torch.max(labels, 1)[1].tolist()
+
         #labels = (torch.sum(labels, 1) - 1).numpy().astype('uint8')
         for fname in fnames:
             fnames_dict[fname] += 1
 
-        print("%d/%d" % (idx, total_len), images1.shape, images2.shape, labels.shape)
-        total_labels.extend(labels.tolist())
+        print("%d/%d" % (idx, total_len), images.shape, labels.shape)
+        total_labels.extend(class_indices)
         #pdb.set_trace()
     print(np.unique(total_labels, return_counts=True))
     diff = time.time() - start

@@ -1,0 +1,50 @@
+remark: Testing
+home: /media/ags/DATA/CODE/kaggle/species-audio-detection/
+data_home: /media/ags/DATA/CODE/kaggle/species-audio-detection/data/
+fold: 0
+total_folds: 5
+size:
+    - 128
+    - 376
+top_lr: 1e-2
+class_weights: None
+cw_sampling: False
+he_sampling: False
+hard_ex_weight: 2
+hard_df: weights/
+num_samples: None
+model_name: efficientnet-b3
+ext_text: test
+mean: (0.485, 0.456, 0.406)
+std: (0.229, 0.224, 0.225)
+
+loss:
+  name: bce
+  params:
+    gamma: 2.0
+
+optimizer:
+    name: SGD
+    params:
+        lr: 1e-2
+        weight_decay: 1e-4
+        momentum: 0.9
+
+df_path: data/train_bmp.csv
+sample_submission: data/sample_submission.csv
+data_folder: train_bmp/
+
+phases: ["train", "val"]
+batch_size:
+    train: 8
+    val: 4
+    test: 4
+
+num_workers: 8
+num_classes: 24
+ep2unfreeze: 2
+num_epochs: 100
+base_lr: None
+momentum: 0.95
+patience: 3
+

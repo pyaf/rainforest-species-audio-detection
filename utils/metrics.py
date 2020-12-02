@@ -26,12 +26,14 @@ class Meter:
         self.targets = []
         self.phase = phase
         self.epoch = epoch
-        self.thresholds = 0.5
+        self.thresholds = 0.3
         self.save_folder = os.path.join(save_folder, "logs")
 
     def update(self, targets, outputs):
         """targets, outputs are detached CUDA tensors"""
+        #import pdb; pdb.set_trace()
         targets = targets.type(torch.LongTensor).flatten()
+        outputs = torch.sigmoid(outputs)
         outputs = (outputs > self.thresholds).type(torch.LongTensor).flatten()
 
         #pdb.set_trace()
@@ -39,6 +41,8 @@ class Meter:
         self.predictions.extend(outputs.tolist())
 
     def get_cm(self):
+
+        #import pdb; pdb.set_trace()
         targets = np.array(self.targets)
         predictions = np.array(self.predictions)
         cm = ConfusionMatrix(targets, predictions)
@@ -58,7 +62,8 @@ def epoch_log(opt, log, tb, phase, epoch, epoch_loss, meter, start):
     log(f"Class TPR: {cls_tpr}")
     log(f"Class PPV: {cls_ppv}")
     log(f"Class F1: {cls_f1}")
-    cm.print_normalized_matrix()
+    #cm.print_normalized_matrix()
+    cm.print_matrix()
     log(f"lr: {lr}")
 
     # tensorboard

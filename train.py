@@ -46,7 +46,7 @@ class Trainer(object):
         # self.resume = self.cfg['resume']
         self.resume = self.args.resume
         self.batch_size = self.cfg["batch_size"]
-        self.accumulation_steps = {x: 32 // bs for x, bs in self.batch_size.items()}
+        self.accumulation_steps = {x: 8 // bs for x, bs in self.batch_size.items()}
         self.num_classes = self.cfg["num_classes"]
         self.ep2unfreeze = self.cfg["ep2unfreeze"]
         self.num_epochs = self.cfg["num_epochs"]
@@ -65,7 +65,7 @@ class Trainer(object):
         self.save_folder = os.path.join(HOME, self.folder)
         self.model_path = os.path.join(self.save_folder, "model.pth")
         self.ckpt_path = os.path.join(self.save_folder, "ckpt.pth")
-        self.net = get_model(self.model_name, self.num_classes)
+        self.net = get_model(self.model_name, self.num_classes)#, pretrained=None)
         self.criterion = get_loss(self.cfg)
         self.optimizer = get_optimizer(self.cfg, self.net.parameters())
         self.scheduler = ReduceLROnPlateau(
@@ -89,7 +89,7 @@ class Trainer(object):
             x: Logger(os.path.join(self.save_folder, "logs", x)) for x in self.phases
         }  # tensorboard logger, see [3]
         mkdir(self.save_folder)
-        df = pd.read_feather(str(self.cfg.home / self.cfg.df_path))
+        df = pd.read_csv(str(self.cfg.home / self.cfg.df_path))
         self.dataloaders = {phase: provider(df, phase, self.cfg) for phase in self.phases}
         #check_sanctity(self.dataloaders)
         save_cfg(self.cfg, self)
@@ -123,14 +123,12 @@ class Trainer(object):
     def forward(self, images, targets):
         #pdb.set_trace()
         images = images.to(self.device)
-        targets = targets.type(torch.FloatTensor).to(self.device) # [1]
         outputs = self.net(images)
-        loss = self.criterion(outputs, targets)
-        return loss, outputs
+        return outputs
 
     def iterate(self, epoch, phase):
         start = time.strftime("%H:%M:%S")
-        self.log(f"Starting epoch: {epoch} | phase: {phase} | {start}")
+        self.log(f"Epoch: {bold(epoch)} | phase: {bold(phase)} | {start}")
         meter = Meter(phase, epoch, self.save_folder)
         batch_size = self.batch_size[phase]
         self.net.train(phase == "train")
@@ -143,8 +141,9 @@ class Trainer(object):
         for itr, batch in enumerate(tk0):
             fnames, images, targets = batch
             #pdb.set_trace()
-            #targets = torch.stack(targets, axis=1)
-            loss, outputs = self.forward(images, targets)
+            targets = targets.type(torch.FloatTensor).to(self.device) # [1]
+            outputs = self.forward(images, targets)
+            loss = self.criterion(outputs, targets)
             loss = loss / accu_steps
             if phase == "train":
                 with amp.scale_loss(loss, self.optimizer) as scaled_loss:
@@ -180,7 +179,7 @@ class Trainer(object):
             torch.save(state, self.ckpt_path)  # [2]
             self.scheduler.step(train_loss)
 
-            continue
+            #continue
             if "val_new" in self.phases:
                 self.iterate(epoch, "val_new")
             with torch.no_grad():
@@ -188,12 +187,12 @@ class Trainer(object):
                 #torch.save(state, self.ckpt_path)  # [2]
                 self.scheduler.step(val_loss)
             if val_loss < self.best_loss:
-                self.log("******** New optimal found, saving state ********")
+                self.log(f"******** {bold('New optimal found, saving state')} ********")
                 state["best_loss"] = self.best_loss = val_loss
                 torch.save(state, self.model_path)
-            copyfile(
-                self.ckpt_path, os.path.join(self.save_folder, "ckpt%d.pth" % epoch)
-            )
+            #copyfile(
+            #    self.ckpt_path, os.path.join(self.save_folder, "ckpt%d.pth" % epoch)
+            #)
             if epoch == 0 and len(self.dataloaders["train"]) > 100:
                 # make sure train/val ran error free, and it's not debugging
                 #commit(self.filename)
@@ -214,7 +213,7 @@ class Trainer(object):
                     phase: provider(phase, self.cfg) for phase in self.phases
                 }
             """
-            # self.log("\n" + "=" * 60 + "\n")
+            self.log("\n" + "=" * 60 + "\n")
             print()
 
 

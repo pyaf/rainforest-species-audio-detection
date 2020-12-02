@@ -14,7 +14,7 @@ def cross_entropy(**_):
     return torch.nn.CrossEntropyLoss()
 
 
-def binary_cross_entropy(**_):
+def bce(**_):
     return torch.nn.BCEWithLogitsLoss()
 
 
