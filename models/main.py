@@ -7,6 +7,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import pretrainedmodels
+from resnest.torch import resnest50
 
 
 from .pretrained import *
@@ -15,11 +16,15 @@ from .resnet import *
 
 def get_model(model_name, num_classes=1, pretrained="imagenet"):
 
+
     if model_name == "resnext101_32x16d":
         return resnext101_32x16d(num_classes)
 
     elif model_name.startswith("efficientnet"):
         return efficientNet(model_name, num_classes, pretrained)
+
+    elif model_name == 'resnest50':
+        return resnest(num_classes, pretrained=pretrained)
 
     model = pretrainedmodels.__dict__[model_name](pretrained=pretrained)
     for params in model.parameters():
@@ -31,6 +36,22 @@ def get_model(model_name, num_classes=1, pretrained="imagenet"):
             out_features=num_classes,
             bias=True
     )
+    return model
+
+
+def resnest(num_classes, pretrained=True):
+    model = resnest50(pretrained=pretrained)
+
+    model.fc = nn.Sequential(
+        nn.Linear(2048, 1024),
+        nn.ReLU(),
+        nn.Dropout(p=0.2),
+        nn.Linear(1024, 1024),
+        nn.ReLU(),
+        nn.Dropout(p=0.2),
+        nn.Linear(1024, num_classes)
+    )
+
     return model
 
 

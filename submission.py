@@ -36,6 +36,42 @@ def get_parser():
     return parser
 
 
+
+fft = 2048
+hop = 512
+sr = 48000
+length = 10 * sr
+
+def load_test_file(f):
+    wav, sr = librosa.load('../data/test/' + f, sr=None)
+
+    # Split for enough segments to not miss anything
+    segments = len(wav) / length
+    segments = int(np.ceil(segments))
+
+    mel_array = []
+
+    for i in range(0, segments):
+        # Last segment going from the end
+        if (i + 1) * length > len(wav):
+            slice = wav[len(wav) - length:len(wav)]
+        else:
+            slice = wav[i * length:(i + 1) * length]
+
+        # Same mel spectrogram as before
+        mel_spec = librosa.feature.melspectrogram(slice, n_fft=fft, hop_length=hop, sr=sr, fmin=fmin, fmax=fmax, power=1.5)
+        mel_spec = resize(mel_spec, (224, 400))
+
+        mel_spec = mel_spec - np.min(mel_spec)
+        mel_spec = mel_spec / np.max(mel_spec)
+
+        mel_spec = np.stack((mel_spec, mel_spec, mel_spec))
+
+        mel_array.append(mel_spec)
+
+    return mel_array
+
+
 class TestDataset(data.Dataset):
     def __init__(self, root, df, size, mean, std, tta=4):
         self.root = root

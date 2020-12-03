@@ -82,7 +82,7 @@ def change_types(cfg):
 
 
 def save_cfg(cfg, trainer):
-    augmentations = trainer.dataloaders["train"].dataset.transform.transforms
+    augmentations = trainer.dataloaders["train"].dataset.audio_transform.transforms
     text = (
         f"model_name: {trainer.model_name}\n"
         + f"augmentations: {augmentations}\n"

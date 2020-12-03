@@ -46,7 +46,7 @@ class Trainer(object):
         # self.resume = self.cfg['resume']
         self.resume = self.args.resume
         self.batch_size = self.cfg["batch_size"]
-        self.accumulation_steps = {x: 8 // bs for x, bs in self.batch_size.items()}
+        self.accumulation_steps = {x: 32 // bs for x, bs in self.batch_size.items()}
         self.num_classes = self.cfg["num_classes"]
         self.ep2unfreeze = self.cfg["ep2unfreeze"]
         self.num_epochs = self.cfg["num_epochs"]
@@ -65,7 +65,8 @@ class Trainer(object):
         self.save_folder = os.path.join(HOME, self.folder)
         self.model_path = os.path.join(self.save_folder, "model.pth")
         self.ckpt_path = os.path.join(self.save_folder, "ckpt.pth")
-        self.net = get_model(self.model_name, self.num_classes)#, pretrained=None)
+        pretrained = self.cfg.pretrained
+        self.net = get_model(self.model_name, self.num_classes, pretrained=pretrained)
         self.criterion = get_loss(self.cfg)
         self.optimizer = get_optimizer(self.cfg, self.net.parameters())
         self.scheduler = ReduceLROnPlateau(
@@ -144,16 +145,18 @@ class Trainer(object):
             targets = targets.type(torch.FloatTensor).to(self.device) # [1]
             outputs = self.forward(images, targets)
             loss = self.criterion(outputs, targets)
-            loss = loss / accu_steps
+            #loss = loss / accu_steps
+
             if phase == "train":
                 with amp.scale_loss(loss, self.optimizer) as scaled_loss:
                     scaled_loss.backward()
-                if (itr + 1) % accu_steps == 0:
-                    self.optimizer.step()
-                    self.optimizer.zero_grad()
+                #if (itr + 1) % accu_steps == 0:
+                self.optimizer.step()
+                self.optimizer.zero_grad()
             running_loss += loss.item()
             meter.update(targets, outputs.detach())
-            tk0.set_postfix(loss=((running_loss * accu_steps) / ((itr + 1))))
+            #tk0.set_postfix(loss=((running_loss * accu_steps) / ((itr + 1))))
+            tk0.set_postfix(loss=(running_loss / (itr + 1)))
         epoch_loss = (running_loss * accu_steps) / total_batches
         acc = epoch_log(
             self.optimizer, self.log, self.tb, phase, epoch, epoch_loss, meter, start

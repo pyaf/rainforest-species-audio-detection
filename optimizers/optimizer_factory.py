@@ -6,12 +6,12 @@ import torch.optim as optim
 from .radam import RAdam
 
 
-def adam(parameters, lr=0.001, betas=(0.9, 0.999), weight_decay=0,
+def Adam(parameters, lr=0.001, betas=(0.9, 0.999), weight_decay=0,
          amsgrad=False, **_):
     if isinstance(betas, str):
         betas = eval(betas)
     #print('weight decay:', weight_decay)
-    return optim.Adam(parameters, lr=lr, betas=betas, weight_decay=weight_decay,
+    return optim.Adam(parameters, lr=lr, betas=betas, weight_decay=float(weight_decay),
                       amsgrad=amsgrad)
 
 

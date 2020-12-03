@@ -6,16 +6,17 @@ from torch.utils.data import DataLoader
 from torch.utils.data import sampler
 from sklearn.model_selection import KFold, StratifiedKFold
 
-from .audio_dataset import AudioDataset, RainforestDataset
+from .audio_dataset import AudioDataset, RainforestDataset, AudioAugDataset
 
 
 def provider(df, phase, cfg):
     HOME = cfg.home
     fold = cfg.fold
     total_folds = cfg.total_folds
-    kfold = StratifiedKFold(total_folds, shuffle=True, random_state=69)
-    #train_idx, val_idx = list(kfold.split(df.recording_id, df.label))[fold]
-    train_idx, val_idx = list(kfold.split(df.file_name, df.label))[fold]
+    kfold = KFold(total_folds, shuffle=True, random_state=69)
+    train_idx, val_idx = list(kfold.split(df.recording_id))[fold]
+    #train_idx, val_idx = list(kfold.split(df.file_name, df.label))[fold]
+
     train_df, val_df = df.iloc[train_idx], df.iloc[val_idx]
     if 'folder' in cfg.keys():
         # save for analysis, later on
@@ -27,7 +28,8 @@ def provider(df, phase, cfg):
     print(f"{phase}: {df.shape}")
 
     #image_dataset = AudioDataset(df, phase, cfg)
-    image_dataset = RainforestDataset(df, phase, cfg)
+    #image_dataset = RainforestDataset(df, phase, cfg)
+    image_dataset = AudioAugDataset(df, phase, cfg)
     batch_size = cfg.batch_size[phase]
     num_workers = cfg.num_workers
     dataloader = DataLoader(

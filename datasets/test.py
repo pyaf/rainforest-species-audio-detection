@@ -20,7 +20,7 @@ if __name__ == "__main__":
     phase = "train"
     args = get_parser()
     cfg = load_cfg(args)
-    cfg["num_workers"] = 0
+    cfg["num_workers"] = 10
     cfg["batch_size"]["train"] = 2
     cfg["batch_size"]["val"] = 2
 
@@ -41,14 +41,15 @@ if __name__ == "__main__":
     fnames_dict = defaultdict(int)
     for idx, batch in enumerate(dataloader):
         fnames, images, labels = batch
-        class_indices = torch.max(labels, 1)[1].tolist()
+        #import pdb; pdb.set_trace()
+        #class_indices = torch.max(labels, 1)[1].tolist()
 
         #labels = (torch.sum(labels, 1) - 1).numpy().astype('uint8')
         for fname in fnames:
             fnames_dict[fname] += 1
 
         print("%d/%d" % (idx, total_len), images.shape, labels.shape)
-        total_labels.extend(class_indices)
+        #total_labels.extend(class_indices)
         #pdb.set_trace()
     print(np.unique(total_labels, return_counts=True))
     diff = time.time() - start

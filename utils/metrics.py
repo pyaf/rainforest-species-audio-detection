@@ -26,15 +26,15 @@ class Meter:
         self.targets = []
         self.phase = phase
         self.epoch = epoch
-        self.thresholds = 0.3
+        self.thresholds = 0.5
         self.save_folder = os.path.join(save_folder, "logs")
 
     def update(self, targets, outputs):
         """targets, outputs are detached CUDA tensors"""
         #import pdb; pdb.set_trace()
-        targets = targets.type(torch.LongTensor).flatten()
+        targets = targets.type(torch.LongTensor)#.flatten()
         outputs = torch.sigmoid(outputs)
-        outputs = (outputs > self.thresholds).type(torch.LongTensor).flatten()
+        outputs = (outputs > self.thresholds).type(torch.LongTensor)#.flatten()
 
         #pdb.set_trace()
         self.targets.extend(targets.tolist())
@@ -43,39 +43,104 @@ class Meter:
     def get_cm(self):
 
         #import pdb; pdb.set_trace()
-        targets = np.array(self.targets)
-        predictions = np.array(self.predictions)
+        targets = np.array(self.targets).reshape(-1, 24)
+        predictions = np.array(self.predictions).reshape(-1, 24)
+        lwlrap_score = lwlrap(targets, predictions)
+        targets = targets.flatten()
+        predictions = predictions.flatten()
         cm = ConfusionMatrix(targets, predictions)
-        return cm
+        # class wise acc calculation, why not use cm.class_stat?
+        corrects = (targets == predictions)
+        get_acc = lambda x: x.sum() / len(x)
+        cls_acc = {
+                0: get_acc(corrects[targets==0]),
+                1: get_acc(corrects[targets==1])
+        }
+        cls_acc = sanitize(cls_acc)
+        return cm, cls_acc, lwlrap_score
+
+
+# LWLRAP metric in numpy, source: [11]
+def _one_sample_positive_class_precisions(scores, truth):
+    num_classes = scores.shape[0]
+    pos_class_indices = np.flatnonzero(truth > 0)
+
+    if not len(pos_class_indices):
+        return pos_class_indices, np.zeros(0)
+
+    retrieved_classes = np.argsort(scores)[::-1]
+
+    class_rankings = np.zeros(num_classes, dtype=np.int)
+    class_rankings[retrieved_classes] = range(num_classes)
+
+    retrieved_class_true = np.zeros(num_classes, dtype=np.bool)
+    retrieved_class_true[class_rankings[pos_class_indices]] = True
+
+    retrieved_cumulative_hits = np.cumsum(retrieved_class_true)
+
+    precision_at_hits = (
+            retrieved_cumulative_hits[class_rankings[pos_class_indices]] /
+            (1 + class_rankings[pos_class_indices].astype(np.float)))
+    return pos_class_indices, precision_at_hits
+
+
+def lwlrap(truth, scores):
+    assert truth.shape == scores.shape
+    num_samples, num_classes = scores.shape
+    precisions_for_samples_by_classes = np.zeros((num_samples, num_classes))
+    for sample_num in range(num_samples):
+        pos_class_indices, precision_at_hits = _one_sample_positive_class_precisions(scores[sample_num, :], truth[sample_num, :])
+        precisions_for_samples_by_classes[sample_num, pos_class_indices] = precision_at_hits
+
+    labels_per_class = np.sum(truth > 0, axis=0)
+    weight_per_class = labels_per_class / float(np.sum(labels_per_class))
+
+    per_class_lwlrap = (np.sum(precisions_for_samples_by_classes, axis=0) /
+                        np.maximum(1, labels_per_class))
+
+    score = (per_class_lwlrap * weight_per_class).sum()
+
+    #return per_class_lwlrap, weight_per_class
+    return score
 
 
 def epoch_log(opt, log, tb, phase, epoch, epoch_loss, meter, start):
-    cm = meter.get_cm()
+    cm, cls_acc, lwlrap_score = meter.get_cm()
 
     lr = opt.param_groups[-1]["lr"]
     # take care of base metrics
     acc, tpr, ppv, f1, cls_tpr, cls_ppv, cls_f1 = get_stats(cm)
     log(
-        "ACC: %0.4f | TPR: %0.4f | PPV: %0.4f | F1: %0.4f"
+        "Overall ACC: %0.4f | TPR: %0.4f | PPV: %0.4f | F1: %0.4f"
         % (acc, tpr, ppv, f1)
     )
+    log(bold('LWLRAP: %0.4f' % lwlrap_score))
     log(f"Class TPR: {cls_tpr}")
     log(f"Class PPV: {cls_ppv}")
     log(f"Class F1: {cls_f1}")
-    #cm.print_normalized_matrix()
-    cm.print_matrix()
-    log(f"lr: {lr}")
+    log(f"Class ACC: {cls_acc}")
 
     # tensorboard
     logger = tb[phase]
     for cls in cls_tpr.keys():
+        logger.log_value("ACC_%s" % cls, float(cls_acc[cls]), epoch)
         logger.log_value("TPR_%s" % cls, float(cls_tpr[cls]), epoch)
         logger.log_value("PPV_%s" % cls, float(cls_ppv[cls]), epoch)
         logger.log_value("F1_%s" % cls, float(cls_f1[cls]), epoch)
+#        log(
+#            f"ACC_{cls}: %0.4f | TPR_{cls}: %0.4f | PPV_{cls}: %0.4f | F1_{cls}: %0.4f"
+#            % (float(cls_acc[cls]), float(cls_tpr[cls]),
+#                float(cls_ppv[cls]), float(cls_f1[cls]))
+#        )
+
+    #cm.print_normalized_matrix()
+    cm.print_matrix()
+    log(f"lr: {lr}")
 
     if phase == "train":
         logger.log_value("lr", lr, epoch)
 
+    logger.log_value("LWLRAP", lwlrap_score, epoch)
     logger.log_value("loss", epoch_loss, epoch)
     logger.log_value(f"ACC", acc, epoch)
     logger.log_value(f"TPR", tpr, epoch)
@@ -94,6 +159,8 @@ def get_stats(cm):
     tpr = cm.overall_stat["TPR Macro"]  # [7]
     ppv = cm.overall_stat["PPV Macro"]
     f1 = cm.overall_stat["F1 Macro"]
+    #import pdb; pdb.set_trace()
+    cls_acc = cm.class_stat["ACC"]
     cls_tpr = cm.class_stat["TPR"]
     cls_ppv = cm.class_stat["PPV"]
     cls_f1 = cm.class_stat["F1"]
@@ -105,6 +172,7 @@ def get_stats(cm):
     if f1 is "None":
         f1 = 0
 
+    cls_acc = sanitize(cls_acc)
     cls_tpr = sanitize(cls_tpr)
     cls_ppv = sanitize(cls_ppv)
     cls_f1 = sanitize(cls_f1)
@@ -160,4 +228,11 @@ It can be argued ki why are we using 0.5 for train, then, well we used 0.5 for b
 [8]: sometimes initial values may come as "None" (str)
 
 [9]: I'm using base th for train phase, so base_qwk and best_qwk are same for train phase, helps in comparing the base_qwk and best_qwk of val phase with the train one, didn't find a way to plot base_qwk of train with best and base of val on a single plot.
+
+[10]: pycm's way of computing acc for each class is little different than what I need here.
+https://github.com/sepandhaghighi/pycm/blob/master/pycm/pycm_class_func.py#L209
+
+They use (TP + TN) / (total) methodology which works well for num_classes>2 type of problems or so, but what I want is how the model performed when the input was True, that too for each class. So, for input being true, there's no point of counting the TNs, we simply need to see how many of those inputs were predicted True, that's it.
+
+[11]: https://www.kaggle.com/c/rfcx-species-audio-detection/discussion/198418#1086063
 """
